@@ -36,9 +36,11 @@ def _default_backend(show: bool) -> None:
     if not show:
         matplotlib.use("Agg")
         return
+    import matplotlib.pyplot as plt
+
     for backend in ("QtAgg", "TkAgg", "GTK3Agg", "MacOSX"):
         try:
-            matplotlib.use(backend)
+            plt.switch_backend(backend)
             return
         except Exception:
             continue
