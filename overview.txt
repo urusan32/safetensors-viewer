@@ -1,0 +1,33 @@
+What's there
+
+loraview/ — a package with no dependencies beyond numpy and matplotlib:
+
+- reader.py:1 — memory-mapped safetensors reader. No torch/safetensors needed; BF16 is widened to float32 by bit-shift, so the 350 MiB file is read lazily per-tensor.
+- lora.py:1 — groups keys into modules and does the math.
+- render.py:1 — pooling, colour scaling, figures.
+- cli.py:1, browse.py:1 — commands and the interactive browser.
+
+The central choice: everything is expressed as the effective update dW = (alpha/rank) · up @ down, not the raw lora_down/lora_up factors. Raw factors aren't comparable between your two files (rank 128 vs. dynamic 5–42, different bases), but dW lives in the base model's weight space and is directly comparable. Norms, inner products and singular values are computed exactly from r×r Gram matrices, so a full 280-module comparison never materializes an 8192×2048 matrix and takes ~3 s.
+
+Commands
+
+.venv/bin/python -m loraview info    FILE [--all-metadata]
+.venv/bin/python -m loraview list    FILE [-p REGEX] [--sort fro] [--full] [--json]
+.venv/bin/python -m loraview overview FILE [-m fro|rms|absmax|std|rank|spectral|effrank]
+.venv/bin/python -m loraview heatmap FILE MODULE [--what delta|down|up]
+.venv/bin/python -m loraview hist    FILE [-p REGEX]
+.venv/bin/python -m loraview spectrum FILE [-p REGEX]
+.venv/bin/python -m loraview compare A B [-m relative|cosine|ratio|...] [--module NAME]
+.venv/bin/python -m loraview browse  FILE [FILE_B]      # interactive
+
+Any plot takes -o out.png or --show; --pool extreme|mean|rms controls downsampling. Default pooling keeps the largest-magnitude element per block with its sign — averaging cancels the ± structure you're looking for. Colour scales are diverging and symmetric about zero, clipped at the 99.5th percentile of |value|.
+
+browse opens a window with arrow-key navigation (↑/↓ steps through blocks within one layer type); with two files it shows A, B and A−B side by side on a shared scale. Sample outputs from my testing are in out/.
+
+What the data says
+
+The comparison confirms the resize did exactly what its metadata claims (sv_fro: 0.9 from 128): cosine similarity is 0.900–0.923 for all 280 modules, norm ratio 0.902, relative Frobenius difference 43.1% — precisely the √(1−0.9²) you'd expect from truncating to 90% of spectral energy. The per-module spectrum plot shows B as A's spectrum cut off at its retained rank. The dominant weights are in mlp_layer1 and rise steadily toward the last blocks (block 27 is ~4× block 0 in cross_attn_q_proj).
+
+One environment note
+
+Your system Python has no pip or ensurepip (python3-venv isn't installed), so python3 -m venv failed. I bootstrapped .venv/ with get-pip.py instead of touching system packages. It holds numpy, matplotlib, and PySide6 (matplotlib had no usable GUI backend — no tkinter either — and browse needs one). requirements.txt lists just numpy and matplotlib; add PySide6 if you recreate the venv elsewhere and want the interactive browser. sudo apt install python3-venv python3-tk would be the tidier long-term fix.

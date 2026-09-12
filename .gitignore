@@ -1,0 +1,8 @@
+.venv/
+out/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.safetensors
+*.png
+safetensors/
