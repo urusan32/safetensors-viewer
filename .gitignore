@@ -6,3 +6,4 @@ __pycache__/
 *.safetensors
 *.png
 safetensors/
+!docs/screenshots/*.png
